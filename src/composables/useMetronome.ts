@@ -1,25 +1,33 @@
 import { onBeforeUnmount, ref } from 'vue'
+import type { ComputedRef, Ref } from 'vue'
 import { clearInterval as clearWorkerInterval, setInterval as setWorkerInterval } from 'worker-timers'
-import { planMetronomeWindow, quantizeTransportBpm, resolveTransportTempo } from '../metronome.js'
+import { planMetronomeWindow, quantizeTransportBpm, resolveTransportTempo } from '../metronome.ts'
+import type { TimeSignature } from './useTimeSignature.ts'
 
-export function useMetronome({ bpm, isStable, activeSignature }) {
+export interface MetronomeOptions {
+  bpm: Ref<number | null>
+  isStable: Ref<boolean>
+  activeSignature: ComputedRef<TimeSignature>
+}
+
+export function useMetronome({ bpm, isStable, activeSignature }: MetronomeOptions) {
   const activeStep = ref(-1)
   const muted = ref(false)
-  let audioContext
-  let schedulerTimer
-  let visualTimers = []
+  let audioContext: AudioContext | undefined
+  let schedulerTimer: number | undefined
+  let visualTimers: number[] = []
   let nextNoteTime = 0
   let currentStep = 0
-  let transportBpm = null
-  let pendingBpm = null
+  let transportBpm: number | null = null
+  let pendingBpm: number | null = null
 
-  function ensureAudio() {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext
+  function ensureAudio(): void {
+    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
     if (!audioContext) audioContext = new AudioContextClass()
     if (audioContext.state === 'suspended') audioContext.resume()
   }
 
-  function scheduleTick(time, step) {
+  function scheduleTick(time: number, step: number): void {
     if (muted.value || !audioContext) return
     const downbeat = step === 0
     const oscillator = audioContext.createOscillator()
@@ -32,7 +40,8 @@ export function useMetronome({ bpm, isStable, activeSignature }) {
     oscillator.stop(time + 0.05)
   }
 
-  function queueVisualStep(step, time) {
+  function queueVisualStep(step: number, time: number): void {
+    if (!audioContext) return
     const delay = Math.max(0, (time - audioContext.currentTime) * 1000)
     const timer = window.setTimeout(() => {
       activeStep.value = step
@@ -41,11 +50,12 @@ export function useMetronome({ bpm, isStable, activeSignature }) {
     visualTimers.push(timer)
   }
 
-  function scheduler() {
+  function scheduler(): void {
     if (!audioContext || !transportBpm) return
     const tempo = resolveTransportTempo({ currentStep, transportBpm, pendingBpm })
     transportBpm = tempo.transportBpm
     pendingBpm = tempo.pendingBpm
+    if (!transportBpm) return
     const plan = planMetronomeWindow({
       nextNoteTime,
       currentStep,
@@ -62,7 +72,7 @@ export function useMetronome({ bpm, isStable, activeSignature }) {
     currentStep = plan.currentStep
   }
 
-  function stop() {
+  function stop(): void {
     if (schedulerTimer !== undefined) clearWorkerInterval(schedulerTimer)
     schedulerTimer = undefined
     visualTimers.forEach(window.clearTimeout)
@@ -70,9 +80,10 @@ export function useMetronome({ bpm, isStable, activeSignature }) {
     activeStep.value = -1
   }
 
-  function start(startStep = 0, initialDelay = 0.08) {
+  function start(startStep = 0, initialDelay = 0.08): void {
     stop()
     ensureAudio()
+    if (!audioContext || bpm.value === null) return
     transportBpm = quantizeTransportBpm(bpm.value)
     pendingBpm = null
     currentStep = startStep
@@ -81,11 +92,11 @@ export function useMetronome({ bpm, isStable, activeSignature }) {
     scheduler()
   }
 
-  function queueTempoUpdate(nextBpm) {
+  function queueTempoUpdate(nextBpm: number): void {
     if (Number.isFinite(nextBpm) && nextBpm > 0) pendingBpm = quantizeTransportBpm(nextBpm)
   }
 
-  function toggleSound() {
+  function toggleSound(): void {
     muted.value = !muted.value
     if (!muted.value && isStable.value) ensureAudio()
   }

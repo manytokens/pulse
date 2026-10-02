@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { buildFrequencyTicks, formatFrequency, frequencyToPosition, positionToFrequency } from '../src/spectrum-axis.js'
+import { buildFrequencyTicks, formatFrequency, frequencyToPosition, positionToFrequency } from '../src/spectrum-axis.ts'
 
 test('maps frequencies to positions across supported scales', () => {
   const linear = { scale: 'linear', minFrequency: 0, maxFrequency: 10000 }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createSpectrogramColorMap, normalizeFftSize, onsetIntensity, SPECTROGRAM_DEFAULT_SETTINGS } from '../src/spectrogram-palette.js'
+import { createSpectrogramColorMap, normalizeFftSize, onsetIntensity, SPECTROGRAM_DEFAULT_SETTINGS } from '../src/spectrogram-palette.ts'
 
 test('maps intensity with a hard cutoff that keeps drum onsets prominent', () => {
   assert.equal(onsetIntensity(0.2, 0.34, 9.5), 0)

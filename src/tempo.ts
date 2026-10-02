@@ -1,16 +1,16 @@
-function median(values) {
+function median(values: readonly number[]): number {
   const sorted = [...values].sort((a, b) => a - b)
   const middle = Math.floor(sorted.length / 2)
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2
 }
 
-export function requiredTapsForLock(numerator) {
+export function requiredTapsForLock(numerator: number): number {
   if (!Number.isInteger(numerator) || numerator < 1) throw new RangeError('Numerator must be positive')
   return numerator * 2 + 1
 }
 
-export function estimateRobustPeriod(timestamps) {
-  const slopes = []
+export function estimateRobustPeriod(timestamps: readonly number[]): number {
+  const slopes: number[] = []
   for (let start = 0; start < timestamps.length - 1; start += 1) {
     for (let end = start + 1; end < timestamps.length; end += 1) {
       slopes.push((timestamps[end] - timestamps[start]) / (end - start))
@@ -19,7 +19,7 @@ export function estimateRobustPeriod(timestamps) {
   return median(slopes)
 }
 
-export function calculateCorrectedBpm(timestamps, previousBpm, isStable) {
+export function calculateCorrectedBpm(timestamps: readonly number[], previousBpm: number | null, isStable: boolean): number {
   const intervalCount = timestamps.length - 1
   const robustBpm = 60000 / estimateRobustPeriod(timestamps)
   if (intervalCount < 3 || previousBpm === null) return robustBpm

@@ -57,10 +57,11 @@ actual drum hits.
 
 ```bash
 npm install
-npm run dev      # start the Vite dev server
-npm test         # run unit tests (node --test)
-npm run build    # production build into dist/
+npm run dev        # start the Vite dev server
+npm test           # run unit tests (node --test, TS via native type stripping)
+npm run typecheck  # vue-tsc --noEmit
+npm run build      # production build into dist/
 ```
 
-Vue 3 (vapor mode) + Vite. Audio decoding and playback use the Web Audio API;
+TypeScript + Vue 3 (vapor mode) + Vite. Audio decoding and playback use the Web Audio API;
 spectrogram tiles are computed in Web Workers.

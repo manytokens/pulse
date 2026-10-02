@@ -1,10 +1,23 @@
 // Builders for the osu! beatmap package (.osz) export.
 
-export function sanitizeFileName(name) {
-  return String(name || '').replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim()
+export interface OsuMetadata {
+  title: string
+  artist?: string
+  creator?: string
+  version?: string
 }
 
-export function buildOsuFile({ title, artist = 'Unknown', creator = 'Pulse', version = 'Timing', bpm, offsetMs, numerator }) {
+export interface OsuTimingMetadata extends OsuMetadata {
+  bpm: number
+  offsetMs: number
+  numerator: number
+}
+
+export function sanitizeFileName(name: unknown): string {
+  return String(name ?? '').replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim()
+}
+
+export function buildOsuFile({ title, artist = 'Unknown', creator = 'Pulse', version = 'Timing', bpm, offsetMs, numerator }: OsuTimingMetadata): string {
   const beatLength = 60000 / bpm
   return [
     'osu file format v14',
@@ -54,6 +67,6 @@ export function buildOsuFile({ title, artist = 'Unknown', creator = 'Pulse', ver
   ].join('\r\n')
 }
 
-export function osuFileName({ title, artist = 'Unknown', creator = 'Pulse', version = 'Timing' }) {
+export function osuFileName({ title, artist = 'Unknown', creator = 'Pulse', version = 'Timing' }: OsuMetadata): string {
   return `${artist} - ${title} (${creator}) [${version}].osu`
 }

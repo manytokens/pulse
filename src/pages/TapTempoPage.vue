@@ -1,10 +1,10 @@
-<script setup vapor>
+<script setup vapor lang="ts">
 import { computed, onBeforeUnmount } from 'vue'
 import { RotateCcw as rotateCcwIcon, Volume2 as volume2Icon, VolumeX as volumeXIcon } from 'lucide'
 import { useI18n } from 'vue-i18n'
-import { useMetronome } from '../composables/useMetronome.js'
-import { useTempoMeasurement } from '../composables/useTempoMeasurement.js'
-import { useTimeSignature } from '../composables/useTimeSignature.js'
+import { useMetronome } from '../composables/useMetronome.ts'
+import { useTempoMeasurement } from '../composables/useTempoMeasurement.ts'
+import { useTimeSignature } from '../composables/useTimeSignature.ts'
 import LucideIcon from '../components/LucideIcon.vue'
 
 const { t } = useI18n({ useScope: 'global' })
@@ -18,7 +18,7 @@ const {
   activateCustomSignature,
 } = useTimeSignature()
 
-let metronome
+let metronome!: ReturnType<typeof useMetronome>
 const measurement = useTempoMeasurement({
   activeSignature,
   onLock: (currentBeat) => metronome.start(currentBeat, 0.025),
@@ -60,7 +60,7 @@ const meterText = computed(() => {
   return isStable.value ? t('syncedContinue') : t('keepSteady')
 })
 
-function updateSignature(changeSignature) {
+function updateSignature(changeSignature: () => void) {
   const previousStep = activeStep.value
   changeSignature()
   if (isStable.value) {
@@ -69,7 +69,7 @@ function updateSignature(changeSignature) {
   }
 }
 
-function handleSignatureSelection(id) {
+function handleSignatureSelection(id: string) {
   updateSignature(() => selectSignature(id))
 }
 
@@ -77,7 +77,7 @@ function handleCustomSignature() {
   updateSignature(activateCustomSignature)
 }
 
-function handleKeydown(event) {
+function handleKeydown(event: KeyboardEvent) {
   if (event.code === 'Escape') {
     event.preventDefault()
     resetMeasurement()
@@ -215,7 +215,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown))
             ><span>{{ step }}</span></i>
           </div>
           <p v-if="!isStable">{{ t('waitingStable') }}</p>
-          <p v-else>{{ t('following', { bpm: Math.round(bpm), signature: activeSignature.label }) }}</p>
+          <p v-else>{{ t('following', { bpm: Math.round(bpm ?? 0), signature: activeSignature.label }) }}</p>
         </div>
       </aside>
   </section>

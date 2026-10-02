@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { buildOsuFile, osuFileName, sanitizeFileName } from '../src/osz-export.js'
+import { buildOsuFile, osuFileName, sanitizeFileName } from '../src/osz-export.ts'
 
 test('sanitizes file names for the archive', () => {
   assert.equal(sanitizeFileName('a/b\\c:d*e?f"g<h>i|j'), 'abcdefghij')

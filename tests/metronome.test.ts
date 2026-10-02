@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { planMetronomeWindow, quantizeTransportBpm, resolveTransportTempo } from '../src/metronome.js'
+import { planMetronomeWindow, quantizeTransportBpm, resolveTransportTempo } from '../src/metronome.ts'
 
 test('uses the displayed integer BPM for the transport', () => {
   assert.equal(quantizeTransportBpm(128.49), 128)
@@ -28,7 +28,7 @@ test('uses the new BPM after two warm-up bars and keeps the third-bar phase', ()
   const changed = planMetronomeWindow({
     nextNoteTime: thirdBarStart,
     currentStep: 0,
-    bpm: tempo.transportBpm,
+    bpm: tempo.transportBpm!,
     numerator,
     horizon: thirdBarStart + 4 * (60 / newBpm) + 0.001,
   })

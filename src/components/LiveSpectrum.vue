@@ -1,13 +1,15 @@
-<script setup vapor>
+<script setup vapor lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import type { PropType } from 'vue'
 import FFT from 'fft.js'
-import { buildFrequencyTicks, positionToFrequency } from '../spectrum-axis.js'
+import { buildFrequencyTicks, positionToFrequency } from '../spectrum-axis.ts'
+import type { FrequencyTick } from '../spectrum-axis.ts'
 
 const props = defineProps({
-  analyser: { type: Object, default: null },
+  analyser: { type: Object as PropType<AnalyserNode | null>, default: null },
   active: { type: Boolean, default: false },
   playing: { type: Boolean, default: false },
-  audioBuffer: { type: Object, default: null },
+  audioBuffer: { type: Object as PropType<AudioBuffer | null>, default: null },
   currentTime: { type: Number, default: 0 },
   frequencyScale: { type: String, default: 'linear' },
   minimumFrequency: { type: Number, default: 0 },
@@ -20,26 +22,26 @@ const BIN_COUNT = FFT_SIZE / 2
 const MIN_DB = -90
 const MAX_DB = -20
 
-const host = ref(null)
-const canvas = ref(null)
-let context
+const host = ref<HTMLDivElement | null>(null)
+const canvas = ref<HTMLCanvasElement | null>(null)
+let context: CanvasRenderingContext2D | null = null
 let devicePixelScale = 1
 let width = 0
 let height = 0
-let frameHandle
+let frameHandle: number | undefined
 let mappingDirty = true
-let columnBins = []
-let ticks = []
+let columnBins: [number, number][] = []
+let ticks: FrequencyTick[] = []
 let frequencyData = new Uint8Array(BIN_COUNT)
 let levels = new Float32Array(0)
 let peaks = new Float32Array(0)
 let peakVelocities = new Float32Array(0)
-let resizeObserver
+let resizeObserver: ResizeObserver | undefined
 // Offline FFT state for the paused view.
-let offlineFft
-let offlineInput
-let offlineSpectrum
-let offlineWindow
+let offlineFft: FFT | undefined
+let offlineInput: number[] = []
+let offlineSpectrum: number[] = []
+let offlineWindow: Float32Array = new Float32Array(0)
 let offlineDirty = true
 
 function sourceInfo() {
@@ -258,12 +260,12 @@ watch(() => [props.frequencyScale, props.minimumFrequency, props.maximumFrequenc
 })
 
 onMounted(() => {
-  context = canvas.value.getContext('2d')
+  context = canvas.value?.getContext('2d') ?? null
   resizeObserver = new ResizeObserver(() => {
     resizeCanvas()
     requestDraw()
   })
-  resizeObserver.observe(host.value)
+  if (host.value) resizeObserver.observe(host.value)
   resizeCanvas()
   if (props.active) requestDraw()
 })

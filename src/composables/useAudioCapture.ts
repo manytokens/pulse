@@ -1,13 +1,15 @@
 import { onBeforeUnmount, ref } from 'vue'
 
-function preferredMimeType() {
+export type CaptureSource = 'microphone' | 'system'
+
+function preferredMimeType(): string | undefined {
   return ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4']
     .find((type) => MediaRecorder.isTypeSupported(type))
 }
 
-async function preferMusicQuality(track) {
-  const supported = navigator.mediaDevices.getSupportedConstraints()
-  const constraints = {
+async function preferMusicQuality(track: MediaStreamTrack): Promise<void> {
+  const supported = navigator.mediaDevices.getSupportedConstraints() as Record<string, boolean>
+  const constraints: Record<string, unknown> = {
     channelCount: { ideal: 2 },
     sampleRate: { ideal: 48000 },
     sampleSize: { ideal: 16 },
@@ -26,27 +28,27 @@ async function preferMusicQuality(track) {
   }
 }
 
-export function useAudioCapture(onComplete) {
+export function useAudioCapture(onComplete?: (blob: Blob) => void) {
   const isRecording = ref(false)
-  const recordingSource = ref(null)
+  const recordingSource = ref<CaptureSource | null>(null)
   const elapsedSeconds = ref(0)
-  let recorder
-  let stream
-  let chunks = []
-  let elapsedTimer
+  let recorder: MediaRecorder | undefined
+  let stream: MediaStream | undefined
+  let chunks: Blob[] = []
+  let elapsedTimer: number | undefined
   let startedAt = 0
   let disposed = false
 
-  function releaseStream() {
+  function releaseStream(): void {
     stream?.getTracks().forEach((track) => track.stop())
     stream = undefined
   }
 
-  function stopRecording() {
+  function stopRecording(): void {
     if (recorder?.state === 'recording') recorder.stop()
   }
 
-  async function startRecording(source) {
+  async function startRecording(source: CaptureSource): Promise<void> {
     if (isRecording.value) return
     stream = source === 'system'
       ? await navigator.mediaDevices.getDisplayMedia({
@@ -54,7 +56,7 @@ export function useAudioCapture(onComplete) {
           audio: true,
           systemAudio: 'include',
           surfaceSwitching: 'include',
-        })
+        } as DisplayMediaStreamOptions)
       : await navigator.mediaDevices.getUserMedia({ audio: true })
 
     if (!stream.getAudioTracks().length) {
@@ -69,11 +71,13 @@ export function useAudioCapture(onComplete) {
       ...(mimeType ? { mimeType } : {}),
       audioBitsPerSecond: 320000,
       audioBitrateMode: 'constant',
-    })
+    } as MediaRecorderOptions)
     chunks = []
-    recorder.ondataavailable = ({ data }) => data.size && chunks.push(data)
+    recorder.ondataavailable = ({ data }) => {
+      if (data.size) chunks.push(data)
+    }
     recorder.onstop = () => {
-      const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' })
+      const blob = new Blob(chunks, { type: recorder?.mimeType || 'audio/webm' })
       isRecording.value = false
       recordingSource.value = null
       window.clearInterval(elapsedTimer)

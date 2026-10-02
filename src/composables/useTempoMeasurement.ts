@@ -1,25 +1,34 @@
 import { computed, onBeforeUnmount, ref } from 'vue'
-import { calculateCorrectedBpm, requiredTapsForLock } from '../tempo.js'
+import type { ComputedRef } from 'vue'
+import { calculateCorrectedBpm, requiredTapsForLock } from '../tempo.ts'
+import type { TimeSignature } from './useTimeSignature.ts'
 
-export function useTempoMeasurement({ activeSignature, onLock, onTempoUpdate, onReset }) {
-  const tapTimes = ref([])
+export interface TempoMeasurementOptions {
+  activeSignature: ComputedRef<TimeSignature>
+  onLock?: (currentBeat: number) => void
+  onTempoUpdate?: (bpm: number) => void
+  onReset?: () => void
+}
+
+export function useTempoMeasurement({ activeSignature, onLock, onTempoUpdate, onReset }: TempoMeasurementOptions) {
+  const tapTimes = ref<number[]>([])
   const totalTaps = ref(0)
-  const bpm = ref(null)
+  const bpm = ref<number | null>(null)
   const stability = ref(0)
-  const standardDeviation = ref(null)
-  const lastInterval = ref(null)
+  const standardDeviation = ref<number | null>(null)
+  const lastInterval = ref<number | null>(null)
   const isStable = ref(false)
   const justTapped = ref(false)
-  let tapFeedbackTimer
+  let tapFeedbackTimer: number | undefined
 
   const tapCount = computed(() => totalTaps.value)
   const tapsUntilLock = computed(() => Math.max(0, requiredTapsForLock(activeSignature.value.numerator) - tapCount.value))
   const bpmDisplay = computed(() => (bpm.value ? Math.round(bpm.value) : '--'))
 
-  function updateMeasurement() {
+  function updateMeasurement(): void {
     if (tapTimes.value.length < 2) return
     const intervals = tapTimes.value.slice(1).map((time, index) => time - tapTimes.value[index])
-    lastInterval.value = intervals.at(-1)
+    lastInterval.value = intervals.at(-1) ?? null
     const average = intervals.reduce((sum, interval) => sum + interval, 0) / intervals.length
     const variance = intervals.reduce((sum, interval) => sum + (interval - average) ** 2, 0) / intervals.length
     standardDeviation.value = Math.sqrt(variance)
@@ -38,7 +47,7 @@ export function useTempoMeasurement({ activeSignature, onLock, onTempoUpdate, on
     }
   }
 
-  function resetMeasurement() {
+  function resetMeasurement(): void {
     tapTimes.value = []
     totalTaps.value = 0
     bpm.value = null
@@ -49,7 +58,7 @@ export function useTempoMeasurement({ activeSignature, onLock, onTempoUpdate, on
     onReset?.()
   }
 
-  function handleTap() {
+  function handleTap(): void {
     const now = performance.now()
     const previous = tapTimes.value.at(-1)
     const interval = previous ? now - previous : null

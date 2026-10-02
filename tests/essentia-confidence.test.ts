@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { classifyEssentiaConfidence } from '../src/essentia-confidence.js'
+import { classifyEssentiaConfidence } from '../src/essentia-confidence.ts'
 
 test('classifies Essentia confidence using its official thresholds', () => {
   assert.equal(classifyEssentiaConfidence(0.99).key, 'confidenceVeryLow')

@@ -1,9 +1,9 @@
-<script setup vapor>
+<script setup vapor lang="ts">
 import { Languages as languagesIcon } from 'lucide'
 import { siGithub } from 'simple-icons'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { localeOptions } from '../i18n/index.js'
+import { localeOptions } from '../i18n/index.ts'
 import LucideIcon from './LucideIcon.vue'
 
 const { locale, t } = useI18n({ useScope: 'global' })

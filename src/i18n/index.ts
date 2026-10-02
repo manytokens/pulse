@@ -1,7 +1,12 @@
 import { createI18n } from 'vue-i18n'
-import { messages } from './messages.js'
+import { messages } from './messages.ts'
 
-export const localeOptions = [
+export interface LocaleOption {
+  value: string
+  label: string
+}
+
+export const localeOptions: LocaleOption[] = [
   { value: 'en', label: 'English' },
   { value: 'ja', label: '日本語' },
   { value: 'zh-CN', label: '简体中文' },
@@ -10,10 +15,10 @@ export const localeOptions = [
 
 const supportedLocales = new Set(localeOptions.map(({ value }) => value))
 
-export function detectBrowserLocale(languages = [
+export function detectBrowserLocale(languages: readonly (string | undefined)[] = [
   ...(globalThis.navigator?.languages ?? []),
   globalThis.navigator?.language,
-]) {
+]): string {
   for (const language of languages) {
     if (!language) continue
     const normalized = language.toLowerCase()
@@ -27,7 +32,7 @@ export function detectBrowserLocale(languages = [
 }
 
 const savedLocale = globalThis.localStorage?.getItem('pulse-locale')
-const initialLocale = supportedLocales.has(savedLocale) ? savedLocale : detectBrowserLocale()
+const initialLocale = savedLocale && supportedLocales.has(savedLocale) ? savedLocale : detectBrowserLocale()
 
 export const i18n = createI18n({
   legacy: false,

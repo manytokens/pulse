@@ -1,27 +1,35 @@
-const SCALE_FORWARD = {
+export type FrequencyScale = 'linear' | 'mel' | 'erb'
+
+export interface AxisOptions {
+  scale?: string
+  minFrequency?: number
+  maxFrequency?: number
+}
+
+const SCALE_FORWARD: Record<FrequencyScale, (frequency: number) => number> = {
   linear: (frequency) => frequency,
   mel: (frequency) => 2595 * Math.log10(1 + frequency / 700),
   erb: (frequency) => 21.4 * Math.log10(1 + 0.00437 * frequency),
 }
 
-const SCALE_INVERSE = {
+const SCALE_INVERSE: Record<FrequencyScale, (value: number) => number> = {
   linear: (value) => value,
   mel: (value) => 700 * (10 ** (value / 2595) - 1),
   erb: (value) => (10 ** (value / 21.4) - 1) / 0.00437,
 }
 
-function normalizeScale(scale) {
-  return SCALE_FORWARD[scale] ? scale : 'linear'
+function normalizeScale(scale: string | undefined): FrequencyScale {
+  return scale === 'mel' || scale === 'erb' ? scale : 'linear'
 }
 
-export function frequencyToPosition(frequency, { scale = 'linear', minFrequency = 0, maxFrequency = 20000 } = {}) {
+export function frequencyToPosition(frequency: number, { scale = 'linear', minFrequency = 0, maxFrequency = 20000 }: AxisOptions = {}): number {
   const forward = SCALE_FORWARD[normalizeScale(scale)]
   const low = forward(Math.max(0, minFrequency))
   const high = forward(Math.max(minFrequency + 1, maxFrequency))
   return Math.max(0, Math.min(1, (forward(Math.max(0, frequency)) - low) / (high - low)))
 }
 
-export function positionToFrequency(position, { scale = 'linear', minFrequency = 0, maxFrequency = 20000 } = {}) {
+export function positionToFrequency(position: number, { scale = 'linear', minFrequency = 0, maxFrequency = 20000 }: AxisOptions = {}): number {
   const key = normalizeScale(scale)
   const forward = SCALE_FORWARD[key]
   const low = forward(Math.max(0, minFrequency))
@@ -29,7 +37,7 @@ export function positionToFrequency(position, { scale = 'linear', minFrequency =
   return SCALE_INVERSE[key](low + Math.max(0, Math.min(1, position)) * (high - low))
 }
 
-export function formatFrequency(frequency) {
+export function formatFrequency(frequency: number): string {
   if (frequency >= 1000) {
     const kilohertz = frequency / 1000
     return `${Number.isInteger(kilohertz) ? kilohertz : kilohertz.toFixed(1)}k`
@@ -39,10 +47,16 @@ export function formatFrequency(frequency) {
 
 const TICK_CANDIDATES = [20, 50, 100, 200, 300, 500, 750, 1000, 1500, 2000, 3000, 4000, 5000, 6000, 8000, 10000, 12000, 16000, 20000]
 
-export function buildFrequencyTicks({ scale = 'linear', minFrequency = 0, maxFrequency = 20000, maxTicks = 8 } = {}) {
+export interface FrequencyTick {
+  frequency: number
+  position: number
+  label: string
+}
+
+export function buildFrequencyTicks({ scale = 'linear', minFrequency = 0, maxFrequency = 20000, maxTicks = 8 }: AxisOptions & { maxTicks?: number } = {}): FrequencyTick[] {
   const options = { scale, minFrequency, maxFrequency }
   const minimumGap = 1 / Math.max(1, maxTicks)
-  const ticks = []
+  const ticks: FrequencyTick[] = []
   let lastPosition = -Infinity
   for (const frequency of TICK_CANDIDATES) {
     if (frequency < minFrequency || frequency > maxFrequency) continue

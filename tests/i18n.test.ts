@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { messages } from '../src/i18n/messages.js'
-import { detectBrowserLocale } from '../src/i18n/index.js'
+import { messages } from '../src/i18n/messages.ts'
+import { detectBrowserLocale } from '../src/i18n/index.ts'
 
 test('every locale exposes the same message keys as the English fallback', () => {
   const fallbackKeys = Object.keys(messages.en).sort()

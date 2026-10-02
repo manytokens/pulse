@@ -1,4 +1,4 @@
-<script setup vapor>
+<script setup vapor lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import {
   ChevronDown as chevronDownIcon,
@@ -16,18 +16,18 @@ import {
 } from 'lucide'
 import { useI18n } from 'vue-i18n'
 import { strToU8, zipSync } from 'fflate'
-import OggEncodeWorker from '../workers/ogg-encode.worker.js?worker'
-import { buildOsuFile, osuFileName, sanitizeFileName } from '../osz-export.js'
-import { useAudioCapture } from '../composables/useAudioCapture.js'
-import { useEssentiaAnalysis } from '../composables/useEssentiaAnalysis.js'
-import { classifyEssentiaConfidence } from '../essentia-confidence.js'
+import OggEncodeWorker from '../workers/ogg-encode.worker.ts?worker'
+import { buildOsuFile, osuFileName, sanitizeFileName } from '../osz-export.ts'
+import { useAudioCapture } from '../composables/useAudioCapture.ts'
+import { useEssentiaAnalysis } from '../composables/useEssentiaAnalysis.ts'
+import { classifyEssentiaConfidence } from '../essentia-confidence.ts'
 import LucideIcon from '../components/LucideIcon.vue'
 import SpectrumPlayer from '../components/SpectrumPlayer.vue'
 
 const { t } = useI18n({ useScope: 'global' })
-const fileInput = ref(null)
-const playerRef = ref(null)
-const audioBlob = ref(null)
+const fileInput = ref<HTMLInputElement | null>(null)
+const playerRef = ref<{ getCurrentTime: () => number, getDecodedBuffer: () => AudioBuffer | null } | null>(null)
+const audioBlob = ref<Blob | null>(null)
 const audioUrl = ref('')
 const sourceName = ref('')
 const sourceError = ref('')
@@ -57,7 +57,7 @@ const playerDenominator = computed(() => [2, 4, 8, 16].includes(Number(denominat
 
 watch(spectrumExpanded, (expanded) => localStorage.setItem('pulse-spectrum-expanded', String(expanded)))
 
-async function acceptAudio(blob, name) {
+async function acceptAudio(blob: Blob, name: string) {
   if (audioUrl.value) URL.revokeObjectURL(audioUrl.value)
   audioBlob.value = blob
   audioUrl.value = URL.createObjectURL(blob)
@@ -73,13 +73,14 @@ async function acceptAudio(blob, name) {
   }
 }
 
-function handleFile(event) {
-  const [file] = event.target.files
+function handleFile(event: Event) {
+  const input = event.target as HTMLInputElement
+  const [file] = input.files ?? []
   if (file) acceptAudio(file, file.name)
-  event.target.value = ''
+  input.value = ''
 }
 
-async function startRecording(source) {
+async function startRecording(source: 'microphone' | 'system') {
   sourceError.value = ''
   try {
     await capture.startRecording(source)
@@ -99,9 +100,9 @@ async function exportOsz() {
   exportProgress.value = 0
   try {
     const channelCount = Math.min(2, buffer.numberOfChannels)
-    const channels = []
+    const channels: Float32Array[] = []
     for (let index = 0; index < channelCount; index += 1) channels.push(buffer.getChannelData(index).slice())
-    const ogg = await new Promise((resolve, reject) => {
+    const ogg = await new Promise<Uint8Array>((resolve, reject) => {
       const worker = new OggEncodeWorker()
       worker.onmessage = ({ data }) => {
         if (typeof data.progress === 'number') {
@@ -143,7 +144,7 @@ function setOriginFromPlayhead() {
   if (typeof time === 'number') gridOrigin.value = Number(time.toFixed(3))
 }
 
-function formatDuration(seconds) {
+function formatDuration(seconds: number) {
   if (!Number.isFinite(seconds)) return '—'
   const minutes = Math.floor(seconds / 60)
   return `${minutes}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`
@@ -151,37 +152,37 @@ function formatDuration(seconds) {
 
 const AUDIO_EXTENSION = /\.(mp3|wav|ogg|oga|flac|m4a|aac|opus|webm|mp4)$/i
 
-function isFileDrag(event) {
+function isFileDrag(event: DragEvent) {
   return Array.from(event.dataTransfer?.types || []).includes('Files')
 }
 
-function pickAudioFile(dataTransfer) {
+function pickAudioFile(dataTransfer: DataTransfer | null) {
   for (const file of dataTransfer?.files || []) {
     if (file.type.startsWith('audio/') || AUDIO_EXTENSION.test(file.name)) return file
   }
   return null
 }
 
-function handleDragEnter(event) {
+function handleDragEnter(event: DragEvent) {
   if (!isFileDrag(event)) return
   event.preventDefault()
   dragDepth += 1
   dragActive.value = true
 }
 
-function handleDragOver(event) {
+function handleDragOver(event: DragEvent) {
   if (!isFileDrag(event)) return
   event.preventDefault()
-  event.dataTransfer.dropEffect = 'copy'
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
 }
 
-function handleDragLeave(event) {
+function handleDragLeave(event: DragEvent) {
   if (!isFileDrag(event)) return
   dragDepth = Math.max(0, dragDepth - 1)
   if (!dragDepth) dragActive.value = false
 }
 
-function handleDrop(event) {
+function handleDrop(event: DragEvent) {
   if (!isFileDrag(event)) return
   event.preventDefault()
   dragDepth = 0
@@ -225,7 +226,7 @@ onBeforeUnmount(() => {
     </header>
 
     <div class="source-toolbar">
-      <button class="source-button" type="button" :disabled="capture.isRecording.value" @click="fileInput.click()">
+      <button class="source-button" type="button" :disabled="capture.isRecording.value" @click="fileInput?.click()">
         <LucideIcon :icon="uploadIcon" :size="19" /><span>{{ t('uploadAudio') }}</span>
       </button>
       <input ref="fileInput" class="visually-hidden" type="file" accept="audio/*" @change="handleFile" />

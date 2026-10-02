@@ -1,4 +1,4 @@
-<script setup vapor>
+<script setup vapor lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import {
   Activity as activityIcon,
@@ -21,11 +21,11 @@ import {
 } from 'lucide'
 import { useI18n } from 'vue-i18n'
 import { clearInterval as clearWorkerInterval, setInterval as setWorkerInterval } from 'worker-timers'
-import { barTimeToSeconds, collectScheduledBeats, findNextBeatIndex, formatBarTime, generateBeatGrid } from '../audio-grid.js'
-import { normalizeSpectrogramHopSize, SPECTROGRAM_HOP_SIZES } from '../spectrogram-resolution.js'
-import { SPECTROGRAM_DEFAULT_SETTINGS } from '../spectrogram-palette.js'
-import { buildFrequencyTicks } from '../spectrum-axis.js'
-import { chooseTimeTickStep, formatClockTime, snapAdjacent, visibleGridRange } from '../transport.js'
+import { barTimeToSeconds, collectScheduledBeats, findNextBeatIndex, formatBarTime, generateBeatGrid } from '../audio-grid.ts'
+import { normalizeSpectrogramHopSize, SPECTROGRAM_HOP_SIZES } from '../spectrogram-resolution.ts'
+import { SPECTROGRAM_DEFAULT_SETTINGS } from '../spectrogram-palette.ts'
+import { buildFrequencyTicks } from '../spectrum-axis.ts'
+import { chooseTimeTickStep, formatClockTime, snapAdjacent, visibleGridRange } from '../transport.ts'
 import LucideIcon from './LucideIcon.vue'
 import DawSpectrogram from './DawSpectrogram.vue'
 import LiveSpectrum from './LiveSpectrum.vue'
@@ -46,12 +46,12 @@ const { t } = useI18n({ useScope: 'global' })
 const STACK_HEIGHT = 360
 const MAX_PPS = 3000
 
-const playerElement = ref(null)
-const visualizerElement = ref(null)
-const rulerCanvas = ref(null)
-const waveCanvas = ref(null)
-const gridCanvas = ref(null)
-const barInputElement = ref(null)
+const playerElement = ref<HTMLDivElement | null>(null)
+const visualizerElement = ref<HTMLDivElement | null>(null)
+const rulerCanvas = ref<HTMLCanvasElement | null>(null)
+const waveCanvas = ref<HTMLCanvasElement | null>(null)
+const gridCanvas = ref<HTMLCanvasElement | null>(null)
+const barInputElement = ref<HTMLInputElement | null>(null)
 const ready = ref(false)
 const playing = ref(false)
 const currentTime = ref(0)
@@ -61,14 +61,14 @@ const zoom = ref(40)
 const visibleStart = ref(0)
 const visibleEnd = ref(props.duration)
 const renderPixelsPerSecond = ref(40)
-const decodedBuffer = shallowRef(null)
-const analyserNode = shallowRef(null)
+const decodedBuffer = shallowRef<AudioBuffer | null>(null)
+const analyserNode = shallowRef<AnalyserNode | null>(null)
 const fullscreen = ref(false)
 const barEditing = ref(false)
 const barInput = ref('')
 const msEditing = ref(false)
 const msInput = ref('')
-const msInputElement = ref(null)
+const msInputElement = ref<HTMLInputElement | null>(null)
 const visualMode = ref(localStorage.getItem('pulse-visual-mode') || 'waveform')
 
 const spectrogramResolution = ref(normalizeSpectrogramHopSize(localStorage.getItem('pulse-spectrum-resolution')))
@@ -85,16 +85,16 @@ const fftSizes = [256, 512, 1024, 2048, 4096, 8192]
 const minimumFrequencies = Array.from({ length: 13 }, (_, index) => index * 125)
 const maximumFrequencies = Array.from({ length: 6 }, (_, index) => 5000 + index * 1000)
 
-let audioEl
-let audioCtx
-let mediaSourceNode
-let clickTimer
+let audioEl: HTMLAudioElement | undefined
+let audioCtx: AudioContext | undefined
+let mediaSourceNode: MediaElementAudioSourceNode | undefined
+let clickTimer: number | undefined
 let followSuspended = false
 let panSuppressClick = false
 let nextBeatIndex = 0
-const scheduledClicks = new Set()
-let frameHandle
-let resizeObserver
+const scheduledClicks = new Set<OscillatorNode>()
+let frameHandle: number | undefined
+let resizeObserver: ResizeObserver | undefined
 let loadToken = 0
 
 // View state lives outside Vue reactivity: it changes every animation frame.
@@ -104,10 +104,39 @@ let lastWidth = 0
 let waveDirty = true
 let gridDirty = true
 let rulerDirty = true
-let peakLevels = null
-let palette = null
+interface PeakLevel {
+  block: number
+  mins: Float32Array
+  maxs: Float32Array
+}
 
-function readSpectrumSettings() {
+interface PeakLevels {
+  levels: PeakLevel[]
+  samples: Float32Array
+  sampleRate: number
+}
+
+interface ThemePalette {
+  muted: string
+  accent: string
+  signal: string
+  ink: string
+}
+
+interface StoredSpectrumSettings {
+  fftSize?: number
+  scale?: string
+  minFrequency?: number
+  maxFrequency?: number
+  cutoff?: number
+  intensity?: number
+  brightness?: number
+}
+
+let peakLevels: PeakLevels | null = null
+let palette: ThemePalette | null = null
+
+function readSpectrumSettings(): StoredSpectrumSettings {
   try {
     return JSON.parse(localStorage.getItem('pulse-spectrum-settings-v4') || '{}')
   } catch {
@@ -134,7 +163,7 @@ const spectrogramTicks = computed(() => buildFrequencyTicks({
   maxTicks: 8,
 }))
 
-function timeToPercent(time) {
+function timeToPercent(time: number) {
   const range = Math.max(0.001, visibleEnd.value - visibleStart.value)
   return Math.max(0, Math.min(100, ((time - visibleStart.value) / range) * 100))
 }
@@ -165,7 +194,7 @@ function applyView() {
   rulerDirty = true
 }
 
-function setZoom(nextPps, anchorTime, anchorX) {
+function setZoom(nextPps: number, anchorTime?: number, anchorX?: number) {
   const width = getWidth()
   const clamped = Math.max(fitPps(), Math.min(MAX_PPS, nextPps))
   const time = anchorTime ?? viewStart + width / pps / 2
@@ -185,7 +214,7 @@ function changeZoom() {
   setZoom(Number(zoom.value), anchorTime, anchorX)
 }
 
-function ensureVisible(time) {
+function ensureVisible(time: number) {
   const span = getWidth() / pps
   if (span >= props.duration) return
   if (time < viewStart + span * 0.05 || time > viewStart + span * 0.95) {
@@ -194,7 +223,7 @@ function ensureVisible(time) {
   }
 }
 
-function seekTo(time, { follow = true } = {}) {
+function seekTo(time: number, { follow = true }: { follow?: boolean } = {}) {
   if (!audioEl) return
   const target = Math.max(0, Math.min(props.duration, time))
   audioEl.currentTime = target
@@ -204,7 +233,7 @@ function seekTo(time, { follow = true } = {}) {
   if (follow) ensureVisible(target)
 }
 
-function stepBy(direction, unit) {
+function stepBy(direction: number, unit: 'beat' | 'bar') {
   const stepLength = unit === 'bar' ? barLength.value : beatLength.value
   seekTo(snapAdjacent(audioEl?.currentTime ?? 0, { origin: props.origin, stepLength, direction }))
 }
@@ -216,18 +245,18 @@ function togglePlayback() {
   else audioEl.pause()
 }
 
-function seekFromVisualizer(event) {
+function seekFromVisualizer(event: MouseEvent) {
   if (visualMode.value === 'live' || panSuppressClick) return
-  const bounds = visualizerElement.value.getBoundingClientRect()
+  const bounds = visualizerElement.value!.getBoundingClientRect()
   const ratio = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width))
   seekTo(visibleStart.value + ratio * (visibleEnd.value - visibleStart.value), { follow: false })
 }
 
-function handleWheel(event) {
+function handleWheel(event: WheelEvent) {
   if (!ready.value) return
   const direction = event.deltaY > 0 ? 1 : -1
   if (event.ctrlKey || event.metaKey) {
-    const bounds = visualizerElement.value.getBoundingClientRect()
+    const bounds = visualizerElement.value!.getBoundingClientRect()
     const anchorX = Math.max(0, Math.min(bounds.width, event.clientX - bounds.left))
     const anchorTime = viewStart + anchorX / pps
     setZoom(pps * (direction > 0 ? 0.8 : 1.25), anchorTime, anchorX)
@@ -238,7 +267,7 @@ function handleWheel(event) {
   }
 }
 
-function beginPan(event) {
+function beginPan(event: PointerEvent) {
   // Middle-button drag (or Alt + left drag) pans the view like a DAW.
   const middleButton = event.button === 1
   const altLeftButton = event.button === 0 && event.altKey
@@ -247,7 +276,7 @@ function beginPan(event) {
   const startX = event.clientX
   const startViewTime = viewStart
   let moved = false
-  const move = (pointerEvent) => {
+  const move = (pointerEvent: PointerEvent) => {
     const delta = pointerEvent.clientX - startX
     if (Math.abs(delta) > 2) moved = true
     viewStart = startViewTime - delta / pps
@@ -266,11 +295,11 @@ function beginPan(event) {
   window.addEventListener('pointerup', end, { once: true })
 }
 
-function beginRulerScrub(event) {
+function beginRulerScrub(event: PointerEvent) {
   if (!ready.value) return
   event.preventDefault()
-  const scrub = (pointerEvent) => {
-    const bounds = rulerCanvas.value.getBoundingClientRect()
+  const scrub = (pointerEvent: PointerEvent) => {
+    const bounds = rulerCanvas.value!.getBoundingClientRect()
     const ratio = Math.max(0, Math.min(1, (pointerEvent.clientX - bounds.left) / bounds.width))
     seekTo(visibleStart.value + ratio * (visibleEnd.value - visibleStart.value), { follow: false })
   }
@@ -283,10 +312,10 @@ function beginRulerScrub(event) {
   window.addEventListener('pointerup', end, { once: true })
 }
 
-function beginOriginDrag(event) {
+function beginOriginDrag(event: PointerEvent) {
   event.preventDefault()
-  const move = (pointerEvent) => {
-    const bounds = visualizerElement.value.getBoundingClientRect()
+  const move = (pointerEvent: PointerEvent) => {
+    const bounds = visualizerElement.value!.getBoundingClientRect()
     const ratio = Math.max(0, Math.min(1, (pointerEvent.clientX - bounds.left) / bounds.width))
     const time = visibleStart.value + ratio * (visibleEnd.value - visibleStart.value)
     emit('update:origin', Number(time.toFixed(3)))
@@ -337,7 +366,7 @@ function changePlaybackRate() {
   restartClickScheduler()
 }
 
-function setVisualMode(mode) {
+function setVisualMode(mode: string) {
   visualMode.value = mode
   localStorage.setItem('pulse-visual-mode', mode)
   waveDirty = true
@@ -372,7 +401,7 @@ function handleFullscreenChange() {
   palette = null
 }
 
-function handleKeyboard(event) {
+function handleKeyboard(event: KeyboardEvent) {
   const target = event.target
   const isTyping = target instanceof HTMLTextAreaElement
     || target instanceof HTMLSelectElement
@@ -395,8 +424,8 @@ function handleKeyboard(event) {
 
 // --- Audio engine -----------------------------------------------------------
 
-function ensureAudioGraph({ resume = true } = {}) {
-  const AudioContextClass = window.AudioContext || window.webkitAudioContext
+function ensureAudioGraph({ resume = true }: { resume?: boolean } = {}) {
+  const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
   if (!audioCtx) audioCtx = new AudioContextClass()
   if (resume && audioCtx.state === 'suspended') audioCtx.resume()
   if (!mediaSourceNode && audioEl) {
@@ -416,7 +445,8 @@ function ensureAudioGraph({ resume = true } = {}) {
   }
 }
 
-async function loadAudio(url) {
+async function loadAudio(url: string) {
+  if (!audioEl) return
   const token = ++loadToken
   ready.value = false
   playing.value = false
@@ -430,7 +460,7 @@ async function loadAudio(url) {
   try {
     const response = await fetch(url)
     const encoded = await response.arrayBuffer()
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext
+    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
     if (!audioCtx) audioCtx = new AudioContextClass()
     const buffer = await audioCtx.decodeAudioData(encoded)
     if (token !== loadToken) return
@@ -447,7 +477,7 @@ async function loadAudio(url) {
   }
 }
 
-function buildPeakLevels(buffer) {
+function buildPeakLevels(buffer: AudioBuffer): PeakLevels {
   const samples = buffer.getChannelData(0)
   const baseBlock = 128
   const baseCount = Math.ceil(samples.length / baseBlock)
@@ -466,7 +496,7 @@ function buildPeakLevels(buffer) {
     mins[block] = low
     maxs[block] = high
   }
-  const levels = [{ block: baseBlock, mins, maxs }]
+  const levels: PeakLevel[] = [{ block: baseBlock, mins, maxs }]
   while (levels[levels.length - 1].mins.length > 2048) {
     const previous = levels[levels.length - 1]
     const count = Math.ceil(previous.mins.length / 4)
@@ -491,7 +521,8 @@ function buildPeakLevels(buffer) {
 
 // --- Metronome --------------------------------------------------------------
 
-function scheduleClick(time, accent) {
+function scheduleClick(time: number, accent: boolean) {
+  if (!audioCtx) return
   const oscillator = audioCtx.createOscillator()
   const gain = audioCtx.createGain()
   oscillator.frequency.value = accent ? 1320 : 880
@@ -511,11 +542,11 @@ function resetBeatCursor() {
 }
 
 function clickScheduler() {
-  if (!playing.value || !props.metronomeEnabled || !audioEl) return
+  if (!playing.value || !props.metronomeEnabled || !audioEl || !audioCtx) return
   const mediaTime = audioEl.currentTime
   const rate = audioEl.playbackRate || 1
   const schedule = collectScheduledBeats({ grid: beatGrid.value, startIndex: nextBeatIndex, currentTime: mediaTime, playbackRate: rate })
-  schedule.events.forEach(({ beat, delay }) => scheduleClick(audioCtx.currentTime + delay, beat.isBar))
+  schedule.events.forEach(({ beat, delay }) => scheduleClick(audioCtx!.currentTime + delay, beat.isBar))
   nextBeatIndex = schedule.nextIndex
 }
 
@@ -556,7 +587,7 @@ function getPalette() {
   return palette
 }
 
-function sizeCanvas(canvas, cssWidth, cssHeight) {
+function sizeCanvas(canvas: HTMLCanvasElement, cssWidth: number, cssHeight: number) {
   const dpr = Math.min(window.devicePixelRatio || 1, 2)
   const deviceWidth = Math.max(1, Math.round(cssWidth * dpr))
   const deviceHeight = Math.max(1, Math.round(cssHeight * dpr))
@@ -564,7 +595,7 @@ function sizeCanvas(canvas, cssWidth, cssHeight) {
     canvas.width = deviceWidth
     canvas.height = deviceHeight
   }
-  const context = canvas.getContext('2d')
+  const context = canvas.getContext('2d')!
   context.setTransform(dpr, 0, 0, dpr, 0, 0)
   return context
 }
@@ -635,7 +666,7 @@ function drawGrid() {
   const beatPx = beatLength.value * pps
   const barPx = barLength.value * pps
   const viewEnd = viewStart + width / pps
-  const drawLine = (x, alpha, lineWidth = 1) => {
+  const drawLine = (x: number, alpha: number, lineWidth = 1) => {
     context.globalAlpha = alpha
     context.fillStyle = lineColor
     context.fillRect(x - lineWidth / 2, 0, lineWidth, STACK_HEIGHT)
@@ -787,7 +818,7 @@ onMounted(() => {
     gridDirty = true
     rulerDirty = true
   })
-  resizeObserver.observe(visualizerElement.value)
+  if (visualizerElement.value) resizeObserver.observe(visualizerElement.value)
   frameHandle = requestAnimationFrame(frame)
   document.addEventListener('fullscreenchange', handleFullscreenChange)
   window.addEventListener('keydown', handleKeyboard)
@@ -907,7 +938,7 @@ onBeforeUnmount(() => {
       :value="currentTime"
       :disabled="!ready"
       :style="{ '--seek': `${duration ? (currentTime / duration) * 100 : 0}%` }"
-      @input="seekTo(Number($event.target.value))"
+      @input="seekTo(Number(($event.target as HTMLInputElement).value))"
     />
 
     <div class="player-toolbar secondary-controls">

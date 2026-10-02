@@ -2,7 +2,22 @@ import { onBeforeUnmount, ref } from 'vue'
 
 const TARGET_SAMPLE_RATE = 44100
 
-async function decodeMono(blob) {
+export interface RhythmResult {
+  bpm: number
+  confidence: number
+  ticks: number[]
+  estimates: number[]
+  bpmIntervals: number[]
+  duration: number
+}
+
+interface WorkerReply {
+  id: number
+  result?: Omit<RhythmResult, 'duration'>
+  error?: string
+}
+
+async function decodeMono(blob: Blob): Promise<{ samples: Float32Array, duration: number }> {
   const context = new AudioContext()
   try {
     const decoded = await context.decodeAudioData(await blob.arrayBuffer())
@@ -21,16 +36,16 @@ async function decodeMono(blob) {
 export function useEssentiaAnalysis() {
   const analyzing = ref(false)
   const analysisError = ref('')
-  const result = ref(null)
-  let worker
+  const result = ref<RhythmResult | null>(null)
+  let worker: Worker | undefined
   let jobId = 0
 
-  function ensureWorker() {
-    if (!worker) worker = new Worker(new URL('../workers/essentia.worker.js', import.meta.url), { type: 'module' })
+  function ensureWorker(): Worker {
+    if (!worker) worker = new Worker(new URL('../workers/essentia.worker.ts', import.meta.url), { type: 'module' })
     return worker
   }
 
-  async function analyze(blob) {
+  async function analyze(blob: Blob): Promise<RhythmResult | null> {
     analyzing.value = true
     analysisError.value = ''
     result.value = null
@@ -39,13 +54,14 @@ export function useEssentiaAnalysis() {
       const decoded = await decodeMono(blob)
       if (id !== jobId) return null
       const activeWorker = ensureWorker()
-      const rhythm = await new Promise((resolve, reject) => {
-        const handleMessage = ({ data }) => {
+      const rhythm = await new Promise<NonNullable<WorkerReply['result']>>((resolve, reject) => {
+        const handleMessage = ({ data }: MessageEvent<WorkerReply>) => {
           if (data.id !== id) return
           cleanup()
-          data.error ? reject(new Error(data.error)) : resolve(data.result)
+          if (data.error || !data.result) reject(new Error(data.error || 'analysis failed'))
+          else resolve(data.result)
         }
-        const handleError = (event) => {
+        const handleError = (event: ErrorEvent) => {
           cleanup()
           activeWorker.terminate()
           if (worker === activeWorker) worker = undefined

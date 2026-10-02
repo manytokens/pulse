@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { chooseTimeTickStep, formatClockTime, snapAdjacent, visibleGridRange } from '../src/transport.js'
+import { chooseTimeTickStep, formatClockTime, snapAdjacent, visibleGridRange } from '../src/transport.ts'
 
 test('snaps to the adjacent beat in either direction', () => {
   const grid = { origin: 1, stepLength: 0.5 }

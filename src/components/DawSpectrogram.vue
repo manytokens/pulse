@@ -1,12 +1,13 @@
-<script setup vapor>
+<script setup vapor lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import type { PropType } from 'vue'
 import { SpectrogramOrchestrator } from '@dawcore/spectrogram/orchestrator'
 import SpectrogramWorker from '@dawcore/spectrogram/worker/spectrogram.worker?worker&inline'
-import { normalizeSpectrogramHopSize } from '../spectrogram-resolution.js'
-import { createSpectrogramColorMap, normalizeFftSize } from '../spectrogram-palette.js'
+import { normalizeSpectrogramHopSize } from '../spectrogram-resolution.ts'
+import { createSpectrogramColorMap, normalizeFftSize } from '../spectrogram-palette.ts'
 
 const props = defineProps({
-  audioBuffer: { type: Object, required: true },
+  audioBuffer: { type: Object as PropType<AudioBuffer>, required: true },
   duration: { type: Number, required: true },
   pixelsPerSecond: { type: Number, required: true },
   visibleStart: { type: Number, required: true },
@@ -22,7 +23,7 @@ const props = defineProps({
   height: { type: Number, default: 220 },
 })
 
-const container = ref(null)
+const container = ref<HTMLDivElement | null>(null)
 const TILE_WIDTH = 1000
 // Below this tile count the whole timeline is registered up front: the
 // orchestrator renders the visible tier first and fills the rest during idle
@@ -31,16 +32,31 @@ const TILE_WIDTH = 1000
 // canvas memory.
 const FULL_RENDER_TILE_LIMIT = 64
 const WINDOW_KEEP_MARGIN = 8
-let activeLevel
-let pendingLevel
-let renderTimer
+interface SpectrogramTile {
+  canvasId: string
+  element: HTMLCanvasElement
+}
+
+interface SpectrogramLevel {
+  element: HTMLDivElement
+  orchestrator: SpectrogramOrchestrator
+  pixelsPerSecond: number
+  width: number
+  generation: number
+  tiles: Map<number, SpectrogramTile>
+  viewportSent?: boolean
+}
+
+let activeLevel: SpectrogramLevel | undefined
+let pendingLevel: SpectrogramLevel | null = null
+let renderTimer: number | undefined
 let generation = 0
 
 function createWorker() {
   return new SpectrogramWorker()
 }
 
-function viewportFor(level) {
+function viewportFor(level: SpectrogramLevel) {
   const visibleStartPx = props.visibleStart * level.pixelsPerSecond
   const visibleEndPx = props.visibleEnd * level.pixelsPerSecond
   const overscan = Math.max(0, visibleEndPx - visibleStartPx)
@@ -53,7 +69,7 @@ function viewportFor(level) {
   }
 }
 
-function positionLevel(level, previewPixelsPerSecond = level.pixelsPerSecond) {
+function positionLevel(level: SpectrogramLevel, previewPixelsPerSecond: number = level.pixelsPerSecond) {
   const scale = previewPixelsPerSecond / level.pixelsPerSecond
   // The worker paints each STFT frame at its window START, but the energy of
   // a transient is centered in the window, so onsets show up early. Shift the
@@ -71,10 +87,10 @@ function positionLevel(level, previewPixelsPerSecond = level.pixelsPerSecond) {
 }
 
 const HEAVY_SYNC_INTERVAL = 150
-let heavySyncTimer
+let heavySyncTimer: number | undefined
 let lastHeavySync = 0
 
-function syncLevelViewport(level) {
+function syncLevelViewport(level: SpectrogramLevel | null | undefined) {
   if (!level) return
   const tilesChanged = syncTiles(level)
   // Re-sending the viewport bumps the orchestrator's render generation and
@@ -113,7 +129,7 @@ function updateViewport() {
   }
 }
 
-function syncTiles(level) {
+function syncTiles(level: SpectrogramLevel) {
   const totalTiles = Math.max(1, Math.ceil(level.width / TILE_WIDTH))
   let changed = false
   let firstIndex = 0
@@ -158,13 +174,13 @@ function syncTiles(level) {
   return changed
 }
 
-function disposeLevel(level) {
+function disposeLevel(level: SpectrogramLevel | null | undefined) {
   if (!level) return
   level.orchestrator.dispose()
   level.element.remove()
 }
 
-async function prepareLevel(pixelsPerSecond) {
+async function prepareLevel(pixelsPerSecond: number) {
   const requestGeneration = ++generation
   disposeLevel(pendingLevel)
   pendingLevel = null
@@ -175,28 +191,28 @@ async function prepareLevel(pixelsPerSecond) {
   layer.style.width = `${width}px`
   layer.style.height = `${props.height}px`
   layer.style.opacity = '0'
-  container.value.appendChild(layer)
+  container.value?.appendChild(layer)
 
   const fftSize = normalizeFftSize(props.fftSize)
   const orchestrator = new SpectrogramOrchestrator({
     workerFactory: createWorker,
     workerPoolSize: 1,
     config: {
-      fftSize,
+      fftSize: fftSize as 256 | 512 | 1024 | 2048 | 4096 | 8192,
       hopSize: Math.min(fftSize, normalizeSpectrogramHopSize(props.hopSize)),
       windowFunction: 'hann',
       zeroPaddingFactor: 1,
-      frequencyScale: ['linear', 'mel', 'erb'].includes(props.frequencyScale) ? props.frequencyScale : 'linear',
+      frequencyScale: (['linear', 'mel', 'erb'].includes(props.frequencyScale) ? props.frequencyScale : 'linear') as 'linear' | 'mel' | 'erb',
       minFrequency: Math.max(0, props.minimumFrequency),
       maxFrequency: Math.max(props.minimumFrequency + 1, props.maximumFrequency),
       gainDb: 0,
       rangeDb: 100,
       labels: false,
     },
-    colorMap: createSpectrogramColorMap(props.cutoffFactor, props.intensityFactor, props.brightness),
+    colorMap: createSpectrogramColorMap(props.cutoffFactor, props.intensityFactor, props.brightness) as unknown as [number, number, number, number][],
     devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2),
   })
-  const level = { element: layer, orchestrator, pixelsPerSecond, width, generation: requestGeneration, tiles: new Map() }
+  const level: SpectrogramLevel = { element: layer, orchestrator, pixelsPerSecond, width, generation: requestGeneration, tiles: new Map() }
   pendingLevel = level
 
   orchestrator.registerClip({

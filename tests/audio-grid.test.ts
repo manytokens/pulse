@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { barTimeToSeconds, collectScheduledBeats, findNextBeatIndex, formatBarTime, generateBeatGrid } from '../src/audio-grid.js'
+import { barTimeToSeconds, collectScheduledBeats, findNextBeatIndex, formatBarTime, generateBeatGrid } from '../src/audio-grid.ts'
 
 test('generates bar markers from BPM, origin, and meter', () => {
   const grid = generateBeatGrid({ duration: 10, bpm: 120, origin: 0.25, numerator: 4, denominator: 4 })

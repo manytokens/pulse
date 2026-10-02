@@ -1,7 +1,7 @@
-<script setup vapor>
+<script setup vapor lang="ts">
 import { useRoute } from 'vue-router'
 import AppHeader from './components/AppHeader.vue'
-import { useDocumentLocale } from './composables/useDocumentLocale.js'
+import { useDocumentLocale } from './composables/useDocumentLocale.ts'
 import AudioAnalyzePage from './pages/AudioAnalyzePage.vue'
 import TapTempoPage from './pages/TapTempoPage.vue'
 
