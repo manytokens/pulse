@@ -1,0 +1,30 @@
+{
+  "name": "pulse-bpm",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@dawcore/spectrogram": "^0.0.7",
+    "essentia.js": "^0.1.3",
+    "fflate": "^0.8.3",
+    "fft.js": "^4.0.4",
+    "lucide": "^1.37.0",
+    "simple-icons": "^16.29.0",
+    "vue": "3.6.0-rc.6",
+    "vue-i18n": "^11.4.10",
+    "vue-router": "^4.5.1",
+    "wasm-media-encoders": "^0.7.0",
+    "wavesurfer.js": "^7.12.11",
+    "worker-timers": "^8.0.34"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.8",
+    "vite": "^8.2.2"
+  }
+}
